@@ -25,24 +25,22 @@ mongoClient.connect()
 .catch((error) => console.log(chalk.bold.red("Could't connet to database!"), error));
 
 // Joi schemas
-const userSchema = joi.object({
+const signUpSchema = joi.object({
     name: joi.string().trim().required(),
     email: joi.string().trim().email().required(),
     password: joi.string().pattern(new RegExp('^[a-zA-Z0-9]{3,30}$')).required(),
     repeat_password: joi.required().valid(joi.ref('password'))
 });
-const messageSchema = joi.object({
-    from: joi.string().required(),
-    to: joi.string().required(),
-    text: joi.string().required(),
-    type: joi.string().required(),
+const signInSchema = joi.object({
+    email: joi.string().trim().email().required(),
+    password: joi.string().required()
 });
 
 app.post("/sign-up", async (req, res) => {
     const {name, email, password, repeat_password} = req.body;
     const user = req.body;
     
-    const {error} = userSchema.validate(user, {abortEarly: false});
+    const {error} = signUpSchema.validate(user, {abortEarly: false});
     if(error){
         return res.status(406).send(error.details.map(detail => detail.message));
     }
@@ -51,9 +49,7 @@ app.post("/sign-up", async (req, res) => {
         if(userAlreadyExist){
             return res.status(409).send("Email has already been register!");
         }
-
         const encryptedPassword = await bcrypt.hash(password, 10);
-
         await db.collection("users").insertOne({
             name,
             email,
@@ -67,34 +63,26 @@ app.post("/sign-up", async (req, res) => {
     }
 });
 
-app.post("/participants", async (req, res) => {
-    const {name} = req.body;
-    let nameAlreadyExist = [];
+app.post("/sign-in", async (req, res) => {
+    const {email, password} = req.body;
+    const user = req.body;
     
-    const validation = userSchema.validate({name}, {abortEarly: false});
-    if(validation.error){
-        console.log(validation.error.details.map(detail => detail.message)); // TODO: erase me
-        return res.status(422).send("Nome deve ser string não vazio!");
+    const {error} = signInSchema.validate(user, {abortEarly: false});
+    if(error){
+        return res.status(406).send(error.details.map(detail => detail.message));
     }
-    
     try{
-        nameAlreadyExist = await db.collection("participants").findOne({name});
-        if(nameAlreadyExist){
-            return res.status(409).send("O nome escolhido já existe!");
+        const userExist = await db.collection("users").findOne({email});
+        if(!userExist){
+            return res.status(404).send("Email has not been register!");
         }
-
-        await db.collection("messages").insertOne({
-            from: name,
-            to: 'Todos',
-            text: 'entra na sala...',
-            type: 'status',
-            time: dayjs().format('HH:mm:ss')
-        });
-        
-        await db.collection("participants").insertOne({name, lastStatus: Date.now()});
-        res.sendStatus(201);
+        const encryptedPassword = await bcrypt.compare(password, userExist.password);
+        if(!encryptedPassword){
+            return res.status(401).send("Invalid password!");
+        }
+        res.status(200).send("esse é um token para o usuarios fazer outras req");
     }catch(e){
-        console.log("Error on POST /participants", e);
+        console.log("Error on POST /sign-up", e);
         res.sendStatus(500);
     }
 });
