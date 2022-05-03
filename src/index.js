@@ -3,10 +3,9 @@ import express from "express";
 import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import chalk from "chalk";
+import dayjs from "dayjs";
 import cors from "cors";
 import joi from "joi";
-
-// console.log(chalk.bold.green(`Server online on port ${process.env.PORT}`));
 
 // Server configurations
 dotenv.config();
@@ -27,10 +26,10 @@ mongoClient.connect()
 
 // Joi schemas
 const userSchema = joi.object({
-    name: joi.string().required(),
-    email: joi.string().email().required(),
+    name: joi.string().trim().required(),
+    email: joi.string().trim().email().required(),
     password: joi.string().pattern(new RegExp('^[a-zA-Z0-9]{3,30}$')).required(),
-    repeat_password: joi.ref('password')
+    repeat_password: joi.required().valid(joi.ref('password'))
 });
 const messageSchema = joi.object({
     from: joi.string().required(),
@@ -45,34 +44,27 @@ app.post("/sign-up", async (req, res) => {
     
     const {error} = userSchema.validate(user, {abortEarly: false});
     if(error){
-        console.log(error.details.map(detail => detail.message)); // TODO: erase me
-        return res.status(409).send(error.details.map(detail => detail.message));
-        // return res.status(409).send("Nome deve ser string não vazio!");
-    }else if(password !== repeat_password){
-        return res.status(406).send(`Passwords must be equal!`);
+        return res.status(406).send(error.details.map(detail => detail.message));
     }
-    res.send(200)
-    
-    // try{
-    //     nameAlreadyExist = await db.collection("participants").findOne({name});
-    //     if(nameAlreadyExist){
-    //         return res.status(409).send("O nome escolhido já existe!");
-    //     }
+    try{
+        const userAlreadyExist = await db.collection("users").findOne({email});
+        if(userAlreadyExist){
+            return res.status(409).send("Email has already been register!");
+        }
 
-    //     await db.collection("messages").insertOne({
-    //         from: name,
-    //         to: 'Todos',
-    //         text: 'entra na sala...',
-    //         type: 'status',
-    //         time: dayjs().format('HH:mm:ss')
-    //     });
-        
-    //     await db.collection("participants").insertOne({name, lastStatus: Date.now()});
-    //     res.sendStatus(201);
-    // }catch(e){
-    //     console.log("Error on POST /participants", e);
-    //     res.sendStatus(500);
-    // }
+        const encryptedPassword = await bcrypt.hash(password, 10);
+
+        await db.collection("users").insertOne({
+            name,
+            email,
+            password: encryptedPassword,
+            registrationDate: dayjs().format('DD/MM/YY - HH:mm:ss')
+        });
+        res.sendStatus(201);
+    }catch(e){
+        console.log("Error on POST /sign-up", e);
+        res.sendStatus(500);
+    }
 });
 
 app.post("/participants", async (req, res) => {
