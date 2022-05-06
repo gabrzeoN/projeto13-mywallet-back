@@ -6,6 +6,8 @@ import chalk from "chalk";
 import dayjs from "dayjs";
 import cors from "cors";
 import joi from "joi";
+import db from "./../config/db.js"
+import {v4 as uuid} from "uuid";
 
 // Server configurations
 dotenv.config();
@@ -13,16 +15,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.listen(process.env.PORT, () => console.log(chalk.bold.green(`Server online on port ${process.env.PORT}!`)));
-
-// Database configurations
-let db = null;
-const mongoClient = new MongoClient(process.env.MONGO_URI);
-mongoClient.connect()
-.then(() => {
-    db = mongoClient.db(process.env.DATABASE);
-    console.log(chalk.bold.green("Connected to database!"));
-})
-.catch((error) => console.log(chalk.bold.red("Could't connet to database!"), error));
 
 // Joi schemas
 const signUpSchema = joi.object({
@@ -34,6 +26,10 @@ const signUpSchema = joi.object({
 const signInSchema = joi.object({
     email: joi.string().trim().email().required(),
     password: joi.string().required()
+});
+const transactionSchema = joi.object({
+    value: joi.number().required(),
+    description: joi.string().trim().required()
 });
 
 app.post("/sign-up", async (req, res) => {
@@ -54,7 +50,8 @@ app.post("/sign-up", async (req, res) => {
             name,
             email,
             password: encryptedPassword,
-            registrationDate: dayjs().format('DD/MM/YY - HH:mm:ss')
+            registrationTime: dayjs().format('HH:mm:ss'),
+            registrationDate: dayjs().format('DD/MM/YY')
         });
         res.sendStatus(201);
     }catch(e){
@@ -74,15 +71,94 @@ app.post("/sign-in", async (req, res) => {
     try{
         const userExist = await db.collection("users").findOne({email});
         if(!userExist){
-            return res.status(404).send("Email has not been register!");
+            return res.status(404).send("Email has not yet been register!");
         }
-        const encryptedPassword = await bcrypt.compare(password, userExist.password);
-        if(!encryptedPassword){
+        const correctPassword = await bcrypt.compare(password, userExist.password);
+        if(!correctPassword){
             return res.status(401).send("Invalid password!");
         }
-        res.status(200).send("esse é um token para o usuarios fazer outras req");
+
+        const token = uuid();
+        await db.collection("sessions").insertOne({
+            email,
+            token,
+            time: dayjs().format('HH:mm:ss'),
+            date: dayjs().format('DD/MM/YY'),
+            lastStatus: Date.now()
+        });
+        res.status(200).send(token);
     }catch(e){
         console.log("Error on POST /sign-up", e);
         res.sendStatus(500);
     }
 });
+
+// // Feito no onibus
+// app.get("/transaction", async (req, res) => {
+//     const {authorization} = req.headers;
+//     //validar token
+
+//     const token = authorization?.replace("Bearer", "").trim();
+//     if(!authorization) return res.status(400).send("Authorization not found!"); // TODO: verificar status
+
+//     if(!token) return res.status(400).send("Token not found!"); // TODO: verificar status
+
+
+//     try{
+//         const sessionExist = await db.collection("sessions").findOne({token});
+//         if(!sessionExist) return res.status(400).send("User not signed-in!"); // TODO: verificar status
+
+//         const userExist = await db.collection("users").findOne({email: sessionExist.email});
+//         if(!userExist){
+//             return res.status(404).send("Email has not been register!");
+//         }
+        
+//         const userTransactions = await db.collection("transactions").find({ email: userExist.email }).toArray();
+//         res.status(200).send(userTransactions);
+//     }catch(e){
+//         console.log("Error on POST /sign-up", e);
+//         res.sendStatus(500);
+//     }
+// });
+
+// app.post("/transaction/:transactionType", async (req, res) => {
+//     const {transactionType} = req.params;
+//     const {authorization} = req.headers;
+//     const transaction = req.body;
+//     let {value, description} = req.body;
+//     value = parseFloat(value);
+
+//     //validar token
+//     const token = authorization?.replace("Bearer", "").trim();
+//     if(!authorization) return res.status(400).send("Authorization not found!"); // TODO: verificar status
+
+//     if(!token) return res.status(400).send("Token not found!"); // TODO: verificar status
+//     const {error} = transactionSchema.validate(transaction);
+//     if(error){
+//         return res.status(406).send(error.details.map(detail => detail.message));
+//     }
+
+//     if(transactionType !== "inflow" && transactionType !== "outflow") return res.status(400).send("transctionType not valid!"); // TODO: verificar status
+
+//     try{
+//         const sessionExist = await db.collection("sessions").findOne({token});
+//         if(!sessionExist) return res.status(400).send("User not signed-in!"); // TODO: verificar status
+
+//         const userExist = await db.collection("users").findOne({email: sessionExist.email});
+//         if(!userExist){
+//             return res.status(404).send("Email has not been register!");
+//         }
+    
+//         if(transactionType === "inflow"){
+//             await db.collection("transactions").insertOne({ value, description, date: dayjs().format('DD/MM'), email: userExist.email });
+//         }else if(transactionType === "outflow"){
+//             await db.collection("transactions").insertOne({ value: (value * -1), description, date: dayjs().format('DD/MM'), email: userExist.email });
+//         }
+//         res.status(200).send(userTransactions);
+//     }catch(e){
+//         console.log("Error on POST /sign-up", e);
+//         res.sendStatus(500);
+//     }
+// });
+
+// valor, descricao, dia 30/11
