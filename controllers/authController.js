@@ -1,20 +1,8 @@
+import {v4 as uuid} from "uuid";
 import bcrypt from "bcrypt";
 import dayjs from "dayjs";
+import { signUpSchema, signInSchema } from "../schemas/authSchema.js";
 import db from "./../config/db.js"
-import {v4 as uuid} from "uuid";
-import joi from "joi";
-
-// Joi schemas
-const signUpSchema = joi.object({
-    name: joi.string().trim().required(),
-    email: joi.string().trim().email().required(),
-    password: joi.string().pattern(new RegExp('^[a-zA-Z0-9]{3,30}$')).required(),
-    repeat_password: joi.required().valid(joi.ref('password'))
-});
-const signInSchema = joi.object({
-    email: joi.string().trim().email().required(),
-    password: joi.string().required()
-});
 
 // Controllers
 export async function signUp(req, res){
