@@ -7,7 +7,7 @@ export async function validateToken(req, res, next){
     if(!token) return res.status(401).send("Token not found!");
     try{
         const sessionExist = await db.collection("sessions").findOne({token});
-        if(!sessionExist) return res.status(401).send("User not signed-in!");
+        if(!sessionExist || !sessionExist.status) return res.status(401).send("User not signed-in!");
         const userExist = await db.collection("users").findOne({email: sessionExist.email});
         if(!userExist) return res.status(401).send("Email has not been register!");
 

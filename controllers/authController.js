@@ -57,11 +57,29 @@ export async function signIn(req, res){
             token,
             time: dayjs().format('HH:mm:ss'),
             date: dayjs().format('DD/MM/YY'),
-            lastStatus: Date.now()
+            lastStatus: Date.now(),
+            status: true
         });
         res.status(200).send(token);
     }catch(e){
         console.log("Error on POST /sign-up", e);
+        res.sendStatus(500);
+    }
+}
+
+export async function signOut(req, res){
+    const {authorization} = req.headers;
+    const token = authorization?.replace("Bearer", "").trim();
+    
+    try{
+        
+        await db.collection("sessions").updateOne(
+            {token},
+            {$set: {status: false}}
+        );
+        res.sendStatus(200);
+    }catch(e){
+        console.log("Error on PUT /sign-out", e);
         res.sendStatus(500);
     }
 }

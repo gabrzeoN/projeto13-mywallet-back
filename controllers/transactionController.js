@@ -3,20 +3,16 @@ import db from "./../config/db.js"
 
 // Controllers
 export async function getTransactions(req, res){
-
-    try{
-        const sessionExist = await db.collection("sessions").findOne({token});
-        if(!sessionExist) return res.status(401).send("User not signed-in!"); // TODO: verificar status
-
-        const userExist = await db.collection("users").findOne({email: sessionExist.email});
-        if(!userExist){
-            return res.status(401).send("Email has not been register!");
-        }
-        
-        const userTransactions = await db.collection("transactions").find({ email: userExist.email }).toArray();
+    const {user} = res.locals;
+    try{   
+        const userTransactions = await db.collection("transactions").find({ email: user.email }).toArray();
+        userTransactions.forEach(transaction => {
+            delete transaction._id
+            delete transaction.email
+        });
         res.status(200).send(userTransactions);
     }catch(e){
-        console.log("Error on POST /sign-up", e);
+        console.log("Error on GET /transaction", e);
         res.sendStatus(500);
     }
 }
@@ -37,9 +33,9 @@ export async function postTransactions(req, res){
 
     try{
         await db.collection("transactions").insertOne(transaction);
-        res.status(200).send(transaction);
+        res.sendStatus(201);
     }catch(e){
-        console.log("Error on POST /sign-up", e);
+        console.log("Error on POST /transaction/:transactionType", e);
         res.sendStatus(500);
     }
 }
