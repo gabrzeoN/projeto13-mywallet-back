@@ -6,7 +6,7 @@ import db from "./../config/db.js"
 
 // Controllers
 export async function signUp(req, res){
-    const {name, email, password, repeat_password} = req.body;
+    const {name, email, password, repeatPassword} = req.body;
     const user = req.body;
     
     const {error} = signUpSchema.validate(user, {abortEarly: false});
@@ -60,7 +60,7 @@ export async function signIn(req, res){
             lastStatus: Date.now(),
             status: true
         });
-        res.status(200).send(token);
+        res.status(200).send({name: userExist.name, token});
     }catch(e){
         console.log("Error on POST /sign-up", e);
         res.sendStatus(500);

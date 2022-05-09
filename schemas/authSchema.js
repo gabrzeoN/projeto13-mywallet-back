@@ -4,7 +4,7 @@ export const signUpSchema = joi.object({
     name: joi.string().trim().required(),
     email: joi.string().trim().email().required(),
     password: joi.string().pattern(new RegExp('^[a-zA-Z0-9]{3,30}$')).required(),
-    repeat_password: joi.required().valid(joi.ref('password'))
+    repeatPassword: joi.required().valid(joi.ref('password'))
 });
 
 export const signInSchema = joi.object({

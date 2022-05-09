@@ -7,9 +7,9 @@ export async function getTransactions(req, res){
     try{   
         const userTransactions = await db.collection("transactions").find({ email: user.email }).toArray();
         userTransactions.forEach(transaction => {
-            delete transaction._id
             delete transaction.email
         });
+        userTransactions.reverse();
         res.status(200).send(userTransactions);
     }catch(e){
         console.log("Error on GET /transaction", e);
